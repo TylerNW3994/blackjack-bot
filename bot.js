@@ -16,11 +16,13 @@ client.on('ready', () => {
 		Chips	: int
 		Turn	: int
 		Played: : boolean
+		Win 	: int
 */
 var players = {};
 
 const CARDS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"];
 const MAXPLAYERS = 7;
+const LOST = -1, TIE = 0, WON = 1;
 var currentTurn = 0;
 var gameOn = false;
 var startingChips = 500;
@@ -91,6 +93,7 @@ client.on('message', msg => {
 		players[newPlayer].chips = startingChips;
 		players[newPlayer].turn = players.length -1;
 		players[newPlayer].played = false;
+		players[newPlayer].win = TIE;
 		msg.channel.send(newPlayer + " has joined the Blackjack game!  Turn order: "  + players[newPlayer].turn);
 		msg.reply("you'll play next round!");
 	}
@@ -102,7 +105,7 @@ client.on('message', msg => {
 			var cardDealt = game.dealCard();
 			players[currentPlayer].cards[players[currentPlayer].cards.length] = cardDealt.indexOf(CARDS);
 			message.reply("you got a "  + game.deck[cardDealt]);
-			addTotal(currentPlayer, cardDealt);
+			game.addTotal(currentPlayer, cardDealt);
 			message.channel.send("Your new total is: " + currentPlayer.total);
 			message.channel.send("What would you like to do now?");
 		}
@@ -111,23 +114,17 @@ client.on('message', msg => {
 	if(command == "Stand" || command == "stand" || command == "!Stand"){
 		var currentPlayer = author;
 		game.setTurn(author.turn + 1);
+		var playedPlayers = [{}];
+		//Get all the players that played
+		for(var x in players){
+			if(x.played){
+				playedPlayers[x] = x;
+			}
+		}
+		if(game.getTurn() ==  playedPlayers){
+			msg.channel.send("Okay, everyone went, let\'s see what cards I got!");
+			game.endRound(players);
+		}
 	}
 });
-
-//If a card is a face card, turn it into a 10.  Ace, turn into either  1 or 11.
-function addTotal(player, card){
-	if(card.indexOf(CARDS) > 9){
-		//Ace
-		if(card.indexOf(CARDS) == 13){
-			//Ace should be a 1
-			if(player.total >= 11)
-				player.total++;
-			//Ace should be an 11
-			else player.total += 11;
-		}
-		else player.total += 10;
-	}
-	else player.total += card.indexOf(CARDS) + 1;
-}
-
 client.login(process.env.TOKEN);
