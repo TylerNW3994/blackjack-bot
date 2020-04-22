@@ -5,19 +5,9 @@ client.on('ready', () => {
   console.log(`Logged in as ${client.user.tag}!`);
 });
 
-/* PLAYERS ARRAY STRUCTURE:
-	Player
- 		Cards 	: List of ints
-		Total	: int
- 		Wins 	: int
-		Bet		: int
-		Chips	: int
-		Turn	: int
-		Played: : boolean
-		Win 	: int
-*/
 var players = {};
-var dealer = {};
+//var player = {"cards": [], "total": 0, "wins": 0, "bet": 0, "chips": 0, "turn": 0, "played": false, "win": 0};
+var dealer = {"cards": [], "total": 0, "name": ""};
 var newDeck = ["A", "A", "A", "A",
 			"1", "1", "1", "1",
 			"2", "2", "2", "2",
@@ -40,6 +30,17 @@ const LOST = -1, TIE = 0, WON = 1;
 var currentTurn = 0;
 var gameOn = false;
 var startingChips = 500;
+
+function player(name, cards, total, wins, bet, chips, turn, played, win){
+	this.name = name;
+	this.cards = cards;
+	this.total = total;
+	this.wins = wins;
+	this.bet = bet;
+	this.turn = turn;
+	this.played = played;
+	this.win = win;
+}
 
 client.on('message', msg => {
 	var args = msg.content.split(" ");
@@ -79,9 +80,24 @@ client.on('message', msg => {
 			else startingChips = 500;
 			msg.reply(" wants to start a game of Blackjack!  Who else wants to play?  Type !JoinBlackjack to play! We start with " + startingChips + " chips!");
 			gameOn = true;
-			//game = new Game(startingChips);
+			var nameChance = Math.floor((Math.random() * 10) + 1);
+			var name = "";
+			switch(nameChance){
+				case 1: name = "Mike"; break;
+				case 2: name = "Shaniqua"; break;
+				case 3: name = "Franklin"; break;
+				case 4: name = "Mila"; break;
+				case 5: name = "Chad"; break;
+				case 6: name = "Hannah"; break;
+				case 7: name = "Chris"; break;
+				case 8: name = "Lee"; break;
+				case 9: name = "Mikayla"; break;
+				case 10: name = "Ben";
+			}
+			this.currentTurn = 0;
+			dealer.name = name;
 			
-			msg.channel.send("Your dealer\s name is " + name);
+			msg.channel.send("Your dealer\'s name is " + dealer.name);
 		}
 		//Game currently in progress.
 		else {
@@ -99,27 +115,22 @@ client.on('message', msg => {
 			return false;
 		}
 		//There is space for the player and a game is available.
-		var newPlayer = msg.author.toString();
-		players[newPlayer].cards = [{}];
-		players[newPlayer].total = 0;
-		players[newPlayer].wins = 0;
-		players[newPlayer].bet = 0;
-		players[newPlayer].chips = startingChips;
-		players[newPlayer].turn = players.length -1;
-		players[newPlayer].played = false;
-		players[newPlayer].win = TIE;
-		msg.channel.send(newPlayer + " has joined the Blackjack game!  Turn order: "  + players[newPlayer].turn);
+		var newPlayerName = msg.author.toString();
+		var newPlayer = new player(msg.author.username, [], 0, 0, 0, startingChips, Object.keys(players).length, false, TIE);
+		players[Object.keys(players).length] = newPlayer;
+		
+		msg.channel.send(newPlayer.name + " has joined the Blackjack game!  Turn order: "  + newPlayer.turn);
 		msg.reply("you'll play next round!");
 	}
 	
 	if(command == "Hit" || command == "hit" || command == "!Hit"){
-		if(this..getCurrentTurn() == players[author].turn){
+		if(this.getCurrentTurn() == players[author].turn){
 			var currentPlayer = author;
 			//Add a card
-			var cardDealt = game.dealCard();
+			var cardDealt = this.dealCard();
 			players[currentPlayer].cards[players[currentPlayer].cards.length] = cardDealt.indexOf(CARDS);
-			msg.reply("you got a "  + game.deck[cardDealt]);
-			game.addTotal(currentPlayer, cardDealt);
+			msg.reply("you got a "  + this.deck[cardDealt]);
+			this.addTotal(currentPlayer, cardDealt);
 			msg.channel.send("Your new total is: " + currentPlayer.total);
 			msg.channel.send("What would you like to do now?");
 		}
@@ -159,7 +170,7 @@ client.on('message', msg => {
 
 function newRound(players, msg){
 	msg.channel.send("Alright, time for another round!");
-	msg.channel.send(this.dealer.name + " is shuffling the cards...");
+	msg.channel.send(dealer.name + " is shuffling the cards...");
 	this.deck = newDeck;
 	shuffleDeck(this.deck);
 	//Remove all the cards from the players
@@ -190,9 +201,9 @@ function shuffleDeck(deck){
 function endRound(players, msg){
 	while(getDealerTotal() < 17){
 		var cardDealt = this.dealCard();
-		this.dealer.cards[this.dealer.cards.length] = addTotal(this.dealer, cardDealt);
+		dealer.cards[dealer.cards.length] = addTotal(dealer, cardDealt);
 		msg.channel.send("I got a "  + game.deck[cardDealt]);
-		msg.channel.send("My new total is: " + this.dealer.total);
+		msg.channel.send("My new total is: " + dealer.total);
 	}
 	
 	//Dealer bust
@@ -245,7 +256,7 @@ function addTotal(player, card){
 }
 
 function getDealerTotal(){
-	return this.dealer.total;
+	return dealer.total;
 }
 
 function getChips() {
@@ -260,4 +271,4 @@ function setTurn(turn) {
 	this.currentTurn++;
 }
 
-client.login("NzAyNjA1MDYyNDIxMzQ4OTEy.XqCd-Q.BJJcPMdgreJ08TmmNZ91khftzKM");
+client.login("NzAyNjA1MDYyNDIxMzQ4OTEy.XqCi8w.HCo0U4aieeNw-az6bGQ2Xh8ux50");
