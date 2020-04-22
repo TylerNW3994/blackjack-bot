@@ -1,5 +1,7 @@
 const Discord = require('discord.js');
 const client = new Discord.Client();
+const GAME = require("Game.js");
+var game;
 
 client.on('ready', () => {
   console.log(`Logged in as ${client.user.tag}!`);
@@ -7,21 +9,26 @@ client.on('ready', () => {
 
 /* PLAYERS ARRAY STRUCTURE:
 	Player
- 		Cards 	: Array
+ 		Cards 	: List of ints
+		Total	: int
  		Wins 	: int
 		Bet		: int
 		Chips	: int
 		Turn	: int
+		Played: : boolean
 */
 var players = {};
 
+const CARDS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"];
 const MAXPLAYERS = 7;
-var game = false;
+var currentTurn = 0;
+var gameOn = false;
 var startingChips = 500;
 
 client.on('message', msg => {
 	var args = msg.content.split(" ");
 	var command = args[0];
+	var author = msg.author.toString();
 	
 	//User wants to see command syntax
 	if(command == "!helpBlackjack"){
@@ -35,6 +42,7 @@ client.on('message', msg => {
 		msg.channel.send("Playing Blackjack is simple!  Take the total of your cards combined and compare it to the dealer\'s cards!");
 		msg.channel.send("You can bet any amount of chips that you currently have BEFORE the cards are dealt.");
 		msg.channel.send("Your goal is to beat the dealer's total without going over 21!");
+		msg.channel.send("To help you, we tell our dealers to stop at 17 or higher.");
 		msg.channel.send("Special rules: Aces (A) count as either a 1 or an 11, and Face Cards (J, Q, K) all count as 10!");
 		msg.channel.send("If you go over 21, you lose!  Lose all your chips?  You\'re out of the game!");
 	}
@@ -42,16 +50,22 @@ client.on('message', msg => {
 	//Player wants to play Blackjack
 	if(command == "!PlayBlackjack"){
 		//No game currently being started or played
-		if(!game){
+		if(!gameOn){
 			//If user specified how many chips they want to start with.
 			if(args[1]){
 				if(args[1] <= "1" && args[1] >= "9999999")
 					startingChips = args[1];
-				else msg.reply("you entered a weird value for the number of chips you want...");
+				else{
+					msg.reply("you entered a weird value for the number of chips you want...");
+					startingChips = 500;
+				}
 			}
 			else startingChips = 500;
 			msg.reply(" wants to start a game of Blackjack!  Who else wants to play?  Type !JoinBlackjack to play! We start with " + startingChips + " chips!");
-			game = true;
+			gameOn = true;
+			game = new Game(startingChips);
+			
+			msg.channel.send("Your dealer\s name is " + name);
 		}
 		//Game currently in progress.
 		else {
@@ -60,14 +74,60 @@ client.on('message', msg => {
 	}
 	
 	if(command == "!JoinBlackjack"){
-		if(!game)
+		if(!gameOn){
 			msg.reply(" there isn't a game started right now!  Type !PlayBlackjack to start up a game!");
+			return false;
+		}
+		if(players.length == MAXPLAYERS){
+			msg.reply(" hey there are too many people playing right now.  Wait until someone leaves or busts!");
+			return false;
+		}
+		//There is space for the player and a game is available.
+		var newPlayer = msg.author.toString();
+		players[newPlayer].cards = [{}];
+		players[newPlayer].total = 0;
+		players[newPlayer].wins = 0;
+		players[newPlayer].bet = 0;
+		players[newPlayer].chips = startingChips;
+		players[newPlayer].turn = players.length -1;
+		players[newPlayer].played = false;
+		msg.channel.send(newPlayer + " has joined the Blackjack game!  Turn order: "  + players[newPlayer].turn);
+		msg.reply("you'll play next round!");
+	}
+	
+	if(command == "Hit" || command == "hit" || command == "!Hit"){
+		if(game.getCurrentTurn() == players[author].turn){
+			var currentPlayer = author;
+			//Add a card
+			var cardDealt = game.dealCard();
+			players[currentPlayer].cards[players[currentPlayer].cards.length] = cardDealt.indexOf(CARDS);
+			message.reply("you got a "  + game.deck[cardDealt]);
+			addTotal(currentPlayer, cardDealt);
+			message.channel.send("Your new total is: " + currentPlayer.total);
+			message.channel.send("What would you like to do now?");
+		}
+	}
+	
+	if(command == "Stand" || command == "stand" || command == "!Stand"){
+		var currentPlayer = author;
+		game.setTurn(author.turn + 1);
 	}
 });
 
-function deal(){
-	
+//If a card is a face card, turn it into a 10.  Ace, turn into either  1 or 11.
+function addTotal(player, card){
+	if(card.indexOf(CARDS) > 9){
+		//Ace
+		if(card.indexOf(CARDS) == 13){
+			//Ace should be a 1
+			if(player.total >= 11)
+				player.total++;
+			//Ace should be an 11
+			else player.total += 11;
+		}
+		else player.total += 10;
+	}
+	else player.total += card.indexOf(CARDS) + 1;
 }
-
 
 client.login(process.env.TOKEN);
