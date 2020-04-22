@@ -43,12 +43,25 @@ client.on('message', msg => {
 	if(command == "!PlayBlackjack"){
 		//No game currently being started or played
 		if(!game){
-			msg.reply(" wants to start a game of Blackjack!  Who else wants to play?  Type !JoinBlackjack to play!");
+			//If user specified how many chips they want to start with.
+			if(args[1]){
+				if(args[1] <= "1" && args[1] >= "9999999")
+					startingChips = args[1];
+				else msg.reply("you entered a weird value for the number of chips you want...");
+			}
+			else startingChips = 500;
+			msg.reply(" wants to start a game of Blackjack!  Who else wants to play?  Type !JoinBlackjack to play! We start with " + startingChips + " chips!");
 			game = true;
 		}
+		//Game currently in progress.
 		else {
 			msg.reply(" a game is currently in progress!  Type !JoinBlackjack to play!");
 		}
+	}
+	
+	if(command == "!JoinBlackjack"){
+		if(!game)
+			msg.reply(" there isn't a game started right now!  Type !PlayBlackjack to start up a game!");
 	}
 });
 
