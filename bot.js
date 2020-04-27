@@ -6,6 +6,8 @@ client.on('ready', () => {
 });
 
 var players = {};
+var keyVar;
+const config = require("./config.json");
 //var player = {"cards": [], "total": 0, "wins": 0, "bet": 0, "chips": 0, "turn": 0, "played": false, "win": 0};
 var dealer = {"cards": [], "total": 0, "name": ""};
 var newDeck = ["1", "1", "1", "1",
@@ -169,7 +171,7 @@ client.on('message', msg => {
 			}
 			if(this.getTurn() ==  playedPlayers.length){
 				msg.channel.send("Okay, everyone went, let\'s see what cards I got!");
-				game.endRound(players, msg);
+				endRound(players, msg);
 			}
 		}
 	}
@@ -177,10 +179,12 @@ client.on('message', msg => {
 	if(command == "!ready" || command == "!Ready"){
 		if(gameOn){
 			players[author].ready = true;
+			//Check if all players are ready
 			for(var x in players){
 				if(!players[x].ready)
 					return false;
 			}
+			//All players are ready
 			newRound(players, msg);
 			
 		}
@@ -200,13 +204,33 @@ client.on('message', msg => {
 	}
 	
 	if(command == "Bet" || command == "bet" || command == "!Bet"){
+		//If not a player, ask them if they want to join!
+		if(!players[author]) msg.reply(" do you want to play? Type !JoinBlackjack to play!");
+		
 		if(args[1]){
 			var chipsBet = args[1];
+			//Invalid amount of chips
 			if(chipsBet <= 0 || chipsBet > players[author].chips){
 				msg.reply("that's an invalid amount of chips!");
 				return false;
 			}
-			
+			players[author].bet = chipsBet;
+			//Check if all players have bet
+			for(var x in players){
+				if(players[x].bet == 0)
+					return false;
+			}
+			//All players are ready
+			msg.channel.send("All bets have been put in!  " + dealer.name + " is dealing cards!");
+			for(var x in players) {
+				players[x].cards = [dealCard(), dealCard()]
+				addTotal(players[x], players[x].cards[0]);
+				addTotal(players[x], players[x].cards[1]);
+				msg.channel.send(players[x].name + ", your cards are " + players[x].cards[0] + " and " +  players[x].cards[1]);
+				msg.channel.send(players[x].name + ", your current count is " + players[x].total);
+			}
+			dealer.cards = [dealCard(), dealCard()];
+			msg.channel.send(dealer.name + " has a " + dealer.cards[0] + " and another card!");
 		}
 		else msg.reply("type !Bet followed by the number of chips you want to bet!");
 	}
@@ -289,18 +313,19 @@ function endRound(players, msg){
 
 //If a card is a face card, turn it into a 10.  Ace, turn into either  1 or 11.
 function addTotal(player, card){
-	if(card.indexOf(CARDS) > 9){
+	if(CARDS.indexOf(card) > 9){
 		//Ace
-		if(card.indexOf(CARDS) == 13){
+		if(CARDS.indexOf(card) == 13){
 			//Ace should be a 1
 			if(player.total >= 11)
 				player.total++;
 			//Ace should be an 11
 			else player.total += 11;
 		}
+		//Face card
 		else player.total += 10;
 	}
-	else player.total += card.indexOf(CARDS) + 1;
+	else player.total += CARDS.indexOf(card) + 1;
 }
 
 function getDealerTotal(){
@@ -318,5 +343,5 @@ function getTurn() {
 function setTurn(turn) {
 	this.currentTurn++;
 }
-import { key } from "./config.js";
-client.login(key);
+
+client.login(config.key);
