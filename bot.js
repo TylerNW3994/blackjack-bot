@@ -8,8 +8,7 @@ client.on('ready', () => {
 var players = {};
 //var player = {"cards": [], "total": 0, "wins": 0, "bet": 0, "chips": 0, "turn": 0, "played": false, "win": 0};
 var dealer = {"cards": [], "total": 0, "name": ""};
-var newDeck = ["A", "A", "A", "A",
-			"1", "1", "1", "1",
+var newDeck = ["1", "1", "1", "1",
 			"2", "2", "2", "2",
 			"3", "3", "3", "3",
 			"4", "4", "4", "4",
@@ -21,7 +20,8 @@ var newDeck = ["A", "A", "A", "A",
 			"10", "10", "10", "10",
 			"J", "J", "J", "J",
 			"Q", "Q", "Q", "Q",
-			"K", "K", "K", "K"];
+			"K", "K", "K", "K",
+			"A", "A", "A", "A"];
 var deck = newDeck;
 
 const CARDS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"];
@@ -30,16 +30,19 @@ const LOST = -1, TIE = 0, WON = 1;
 var currentTurn = 0;
 var gameOn = false;
 var startingChips = 500;
+var ready = false;
 
-function player(name, cards, total, wins, bet, chips, turn, played, win){
+function player(name, cards, total, wins, bet, chips, turn, played, win, ready){
 	this.name = name;
 	this.cards = cards;
 	this.total = total;
 	this.wins = wins;
 	this.bet = bet;
+	this.chips = chips;
 	this.turn = turn;
 	this.played = played;
 	this.win = win;
+	this.ready = ready;
 }
 
 client.on('message', msg => {
@@ -48,14 +51,15 @@ client.on('message', msg => {
 	var author = msg.author.toString();
 	
 	//User wants to see command syntax
-	if(command == "!helpBlackjack"){
+	if(command == "!helpBlackjack" || command == "helpBlackjack" || command == "helpblackjack"){
 		msg.reply(" type !PlayBlackjack to play a game of blackjack!   Type !Blackjack 1000 to start with 1000 chips (default 500)");
 		msg.channel.send("Is there a game already in progress?  Type !JoinBlackjack if there are seats available!  Max  is 7!");
+		msg.channel.send("When you want to leave the game, type !Leave")
 		msg.channel.send("Don\'t know how to play?  Type !HowToPlay to learn.");
 	}
 	
 	//User wants to learn how to play
-	if(command == "!HowToPlay"){
+	if(command == "!HowToPlay" || command == "!howtoplay" || command == "howtoplay" || command == "HowToPlay"){
 		msg.channel.send("Playing Blackjack is simple!  Take the total of your cards combined and compare it to the dealer\'s cards!");
 		msg.channel.send("You can bet any amount of chips that you currently have BEFORE the cards are dealt.");
 		msg.channel.send("Your goal is to beat the dealer's total without going over 21!");
@@ -65,7 +69,7 @@ client.on('message', msg => {
 	}
 	
 	//Player wants to play Blackjack
-	if(command == "!PlayBlackjack"){
+	if(command == "!PlayBlackjack" || command == "pbj" || command == "PBJ" || command == "playblackjack"){
 		//No game currently being started or played
 		if(!gameOn){
 			//If user specified how many chips they want to start with.
@@ -98,6 +102,7 @@ client.on('message', msg => {
 			dealer.name = name;
 			
 			msg.channel.send("Your dealer\'s name is " + dealer.name);
+			msg.channel.send(dealer.name + ": When everyone is ready, type !Ready");
 		}
 		//Game currently in progress.
 		else {
@@ -105,7 +110,7 @@ client.on('message', msg => {
 		}
 	}
 	
-	if(command == "!JoinBlackjack"){
+	if(command == "!JoinBlackjack" || command == "jbj" || command == "JBJ" || command == "!joinblackjack"){
 		if(!gameOn){
 			msg.reply(" there isn't a game started right now!  Type !PlayBlackjack to start up a game!");
 			return false;
@@ -115,12 +120,27 @@ client.on('message', msg => {
 			return false;
 		}
 		//There is space for the player and a game is available.
-		var newPlayerName = msg.author.toString();
-		var newPlayer = new player(msg.author.username, [], 0, 0, 0, startingChips, Object.keys(players).length, false, TIE);
-		players[Object.keys(players).length] = newPlayer;
+		var newPlayer = new player(msg.author.username, [], 0, 0, 0, startingChips, Object.keys(players).length, false, TIE, ready);
+		players[author] = newPlayer;
 		
 		msg.channel.send(newPlayer.name + " has joined the Blackjack game!  Turn order: "  + newPlayer.turn);
-		msg.reply("you'll play next round!");
+		
+	}
+	
+	if(command == "Scores" || command == "scores" || command == "score" || command == "SCORE"){
+		if(gameOn){
+			var playerScores = "";
+			for(var x in players){
+				playerScores += players[x].name + " has " + players[x].chips + " chips. \n";
+			}
+			msg.channel.send(playerScores);
+		}
+	}
+	
+	if(command == "myscore" || command == "MyScore" || command == "!myscore" ){
+		if(gameOn){
+			msg.reply("you currently have " + players[author].chips);
+		}
 	}
 	
 	if(command == "Hit" || command == "hit" || command == "!Hit"){
@@ -154,6 +174,18 @@ client.on('message', msg => {
 		}
 	}
 	
+	if(command == "!ready" || command == "!Ready"){
+		if(gameOn){
+			players[author].ready = true;
+			for(var x in players){
+				if(!players[x].ready)
+					return false;
+			}
+			newRound(players, msg);
+			
+		}
+	}
+	
 	if(command == "Leave" || command == "leave" || command == "!Leave"){
 		if(players[author]){
 			//decrease the turn order of all the players after the leaving player
@@ -163,20 +195,36 @@ client.on('message', msg => {
 			msg.reply(" see you later!");
 			delete players[author];
 		} else {
-			msg
+			msg.reply("you\'re not in the game!");
 		}
+	}
+	
+	if(command == "Bet" || command == "bet" || command == "!Bet"){
+		if(args[1]){
+			var chipsBet = args[1];
+			if(chipsBet <= 0 || chipsBet > players[author].chips){
+				msg.reply("that's an invalid amount of chips!");
+				return false;
+			}
+			
+		}
+		else msg.reply("type !Bet followed by the number of chips you want to bet!");
 	}
 });
 
 function newRound(players, msg){
 	msg.channel.send("Alright, time for another round!");
 	msg.channel.send(dealer.name + " is shuffling the cards...");
-	this.deck = newDeck;
-	shuffleDeck(this.deck);
+	deck = newDeck;
+	shuffleDeck(deck);
+	msg.channel.send(dealer.name + ":");
 	//Remove all the cards from the players
 	for(var x in players){
-		x.cards = [];
+		players[x].cards = [];
+		players[x].bet = 0;
+		msg.channel.send("@" + players[x].name + ", what do you want to bet?  You currently have " + players[x].chips + " chips.");
 	}
+	
 }
 
 function dealCard(){
@@ -193,8 +241,8 @@ function shuffleDeck(deck){
 		var location2 = Math.floor((Math.random() * deck.length));
 		var tmp = deck[location1];
 
-		this.deck[location1] = deck[location2];
-		this.deck[location2] = tmp;
+		deck[location1] = deck[location2];
+		deck[location2] = tmp;
 	}
 }
 
@@ -271,4 +319,4 @@ function setTurn(turn) {
 	this.currentTurn++;
 }
 
-client.login("NzAyNjA1MDYyNDIxMzQ4OTEy.XqCi8w.HCo0U4aieeNw-az6bGQ2Xh8ux50");
+client.login("NzAyNjA1MDYyNDIxMzQ4OTEy.XqCo1Q.GM7frc4QqdV5Z5oKHk4IgrkGCd0");
