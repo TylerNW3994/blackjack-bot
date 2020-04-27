@@ -318,5 +318,5 @@ function getTurn() {
 function setTurn(turn) {
 	this.currentTurn++;
 }
-
-client.login("NzAyNjA1MDYyNDIxMzQ4OTEy.XqCo1Q.GM7frc4QqdV5Z5oKHk4IgrkGCd0");
+import { key } from "./config.js";
+client.login(key);
