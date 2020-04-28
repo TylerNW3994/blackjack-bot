@@ -8,7 +8,7 @@ client.on('ready', () => {
 var players = {};
 var playerTurns = {};
 var keyVar;
-const config = require("./config.json");
+//const config = require("./config.json");
 //var player = {"cards": [], "total": 0, "wins": 0, "bet": 0, "chips": 0, "turn": 0, "played": false, "win": 0};
 var dealer = {"cards": [], "total": 0, "name": ""};
 var newDeck = ["2", "2", "2", "2",
