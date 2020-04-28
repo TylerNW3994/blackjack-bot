@@ -6,10 +6,12 @@ client.on('ready', () => {
 });
 
 var players = {};
+var playerTurns = {};
+var keyVar;
+const config = require("./config.json");
 //var player = {"cards": [], "total": 0, "wins": 0, "bet": 0, "chips": 0, "turn": 0, "played": false, "win": 0};
 var dealer = {"cards": [], "total": 0, "name": ""};
-var newDeck = ["1", "1", "1", "1",
-			"2", "2", "2", "2",
+var newDeck = ["2", "2", "2", "2",
 			"3", "3", "3", "3",
 			"4", "4", "4", "4",
 			"5", "5", "5", "5",
@@ -120,7 +122,7 @@ client.on('message', msg => {
 			return false;
 		}
 		//There is space for the player and a game is available.
-		var newPlayer = new player(msg.author.username, [], 0, 0, 0, startingChips, Object.keys(players).length, false, TIE, ready);
+		var newPlayer = new player(msg.author.username, [], 0, 0, 0, startingChips, Object.keys(players).length, true, TIE, ready);
 		players[author] = newPlayer;
 		
 		msg.channel.send(newPlayer.name + " has joined the Blackjack game!  Turn order: "  + newPlayer.turn);
@@ -144,43 +146,59 @@ client.on('message', msg => {
 	}
 	
 	if(command == "Hit" || command == "hit" || command == "!Hit"){
-		if(this.getCurrentTurn() == players[author].turn){
+		if(currentTurn == players[author].turn){
 			var currentPlayer = author;
 			//Add a card
-			var cardDealt = this.dealCard();
-			players[currentPlayer].cards[players[currentPlayer].cards.length] = cardDealt.indexOf(CARDS);
-			msg.reply("you got a "  + this.deck[cardDealt]);
-			this.addTotal(currentPlayer, cardDealt);
-			msg.channel.send("Your new total is: " + currentPlayer.total);
+			var cardDealt = dealCard();
+			players[currentPlayer].cards[players[currentPlayer].cards.length] = CARDS.indexOf(cardDealt);
+			msg.reply("you got a "  + cardDealt);
+			addTotal(players[currentPlayer], cardDealt);
+			if(players[currentPlayer].total > 21){
+				nextTurn(msg);
+				msg.reply(" you bust!");
+				players[currentPlayer].won = LOST;
+				players[currentPlayer].played = true;
+				//Make sure all players played.
+				for(var x in players){
+					if(!players[x].played){
+						return false;
+					}
+				}
+				msg.channel.send("Okay, everyone went, let\'s see what cards I got!");
+				endRound(players, msg);
+				return false;
+			}
+			msg.channel.send("Your new total is: " + players[currentPlayer].total);
 			msg.channel.send("What would you like to do now?");
 		}
+		else msg.reply(" it isn't your turn right now!");
 	}
 	
 	if(command == "Stand" || command == "stand" || command == "!Stand"){
-		if(this.getCurrentTurn() == players[author].turn){
-			var currentPlayer = author;
-			this.setTurn(author.turn + 1);
-			var playedPlayers = [{}];
-			//Get all the players that played
+		if(currentTurn == players[author].turn){
+			nextTurn(msg);
+			players[author].played = true;
+			//Make sure all players played.
 			for(var x in players){
-				if(x.played){
-					playedPlayers[x] = x;
+				if(!players[x].played){
+					return false;
 				}
 			}
-			if(this.getTurn() ==  playedPlayers.length){
-				msg.channel.send("Okay, everyone went, let\'s see what cards I got!");
-				game.endRound(players, msg);
-			}
+			msg.channel.send("Okay, everyone went, let\'s see what cards I got!");
+			endRound(players, msg);
 		}
+		else msg.reply(" it isn't your turn right now!");
 	}
 	
 	if(command == "!ready" || command == "!Ready"){
 		if(gameOn){
 			players[author].ready = true;
+			//Check if all players are ready
 			for(var x in players){
 				if(!players[x].ready)
 					return false;
 			}
+			//All players are ready
 			newRound(players, msg);
 			
 		}
@@ -200,13 +218,43 @@ client.on('message', msg => {
 	}
 	
 	if(command == "Bet" || command == "bet" || command == "!Bet"){
+		//If not a player, ask them if they want to join!
+		if(!players[author]) msg.reply(" do you want to play? Type !JoinBlackjack to play!");
+		
+		//If joining a game in progress or has already played, tell the user to wait until next game
+		if(players[author].played) msg.reply(" wait until next game!");
+		
 		if(args[1]){
 			var chipsBet = args[1];
+			//Invalid amount of chips
 			if(chipsBet <= 0 || chipsBet > players[author].chips){
 				msg.reply("that's an invalid amount of chips!");
 				return false;
 			}
-			
+			players[author].bet = chipsBet;
+			//Check if all players have bet
+			for(var x in players){
+				if(players[x].bet == 0)
+					return false;
+			}
+			//All players are ready
+			msg.channel.send("All bets have been put in!  " + dealer.name + " is dealing cards!");
+			for(var x in players) {
+				players[x].cards = [dealCard(), dealCard()]
+				addTotal(players[x], players[x].cards[0]);
+				addTotal(players[x], players[x].cards[1]);
+				msg.channel.send(players[x].name + ", your cards are " + players[x].cards[0] + " and " +  players[x].cards[1] + "\n");
+				drawCards(msg, players[x].cards);
+				msg.channel.send(players[x].name + ", your current count is " + players[x].total);
+			}
+			dealer.cards = [dealCard(), dealCard()];
+			addTotal(dealer, dealer.cards[0]);
+			addTotal(dealer, dealer.cards[1]);
+			msg.channel.send(dealer.name + " has a " + dealer.cards[0] + " and another card!");
+			for(var x in players){
+				msg.channel.send(players[x].name + ", it\'s your turn!");
+				return false;
+			}
 		}
 		else msg.reply("type !Bet followed by the number of chips you want to bet!");
 	}
@@ -222,7 +270,8 @@ function newRound(players, msg){
 	for(var x in players){
 		players[x].cards = [];
 		players[x].bet = 0;
-		msg.channel.send("@" + players[x].name + ", what do you want to bet?  You currently have " + players[x].chips + " chips.");
+		players[x].played = false;
+		msg.channel.send(players[x].name + ", what do you want to bet?  You currently have " + players[x].chips + " chips.");
 	}
 	
 }
@@ -247,60 +296,94 @@ function shuffleDeck(deck){
 }
 
 function endRound(players, msg){
-	while(getDealerTotal() < 17){
-		var cardDealt = this.dealCard();
-		dealer.cards[dealer.cards.length] = addTotal(dealer, cardDealt);
-		msg.channel.send("I got a "  + game.deck[cardDealt]);
+	msg.channel.send("I had a " + dealer.cards[0] + " and a " + dealer.cards[1]);
+	msg.channel.send("Currently, I have a " + dealer.total);
+	while(dealer.total < 17){
+		msg.channel.send("I\'m going to hit!");
+		var cardDealt = dealCard();
+		dealer.cards[dealer.cards.length] = cardDealt;
+		addTotal(dealer, cardDealt);
+		msg.channel.send("I got a "  + cardDealt);
 		msg.channel.send("My new total is: " + dealer.total);
 	}
 	
 	//Dealer bust
-	if(getDealerTotal() > 21){
-		message.channel.send("I bust!  You all win!");
+	if(dealer.total > 21){
+		msg.channel.send("I bust!  Those that didn\'t bust win!");
 		for(var x in players){
-			x.win = true;
+			players[x].ready = false;
+			if(players[x].total <= 21){
+				players[x].win = true;
+				players[x].chips += parseInt(players[x].bet);
+				msg.channel.send(players[x].name + " won!  New chips amount: " + players[x].chips);
+			}
+			//Player previously bust
+			else {
+				players[x].chips -= parseInt(players[x].bet);
+				msg.channel.send(players[x].name + " lost!  New chips amount: " + players[x].chips);
+				if(players[x].chips == 0){
+					msg.channel.send("Hey Everyone, " + players[x].name + " lost ALL their chips.  Can we get an F in the chat? \nF");
+					msg.channel.send("Don\'t worry " + players[x].name + ", I\'ll give you some chips back so you can keep playing!\n");
+					players[x].chips = startingChips;
+				}
+			}
+			players[x].total = 0;
+			dealer.total = 0;
 		}
 	}
 	
 	//Dealer didn't bust but stayed past or at 17
 	else{
+		msg.channel.send("Alright, I'm staying with a " + dealer.total);
 		for(var x in players){
-			//Player won
-			if(x.total > getDealerTotal()){
-				x.chips += x.bet;
-				msg.channel.send(x + " won!  New chips amount: " + x.chips);
+			players[x].ready = false;
+			if(players[x].won != LOST){
+				//Player won
+				if(players[x].total > dealer.total){
+					players[x].chips += parseInt(players[x].bet);
+					msg.channel.send(players[x].name + " won!  New chips amount: " + players[x].chips);
+				}
+				//Player tied
+				else if(players[x].total == dealer.total){
+					msg.channel.send(players[x].name + " and I tied.  No change in chips!");
+				}
+				//Player lost
+				else if(players[x].total < dealer.total){
+					players[x].chips -= parseInt(players[x].bet);
+					msg.channel.send(players[x].name + " lost!  New chips amount: " + players[x].chips);
+					if(players[x].chips == 0){
+						msg.channel.send("Hey Everyone, " + players[x].name + " lost ALL their chips.  Can we get an F in the chat? \nF");
+						msg.channel.send("Don\'t worry " + players[x].name + ", I\'ll give you some chips back so you can keep playing!");
+						players[x].chips = startingChips;
+					}
+				}
+				//ERROR
+				else {
+					msg.channel.send("Tyler, there\'s a mistake determining who won.");
+				}
 			}
-			//Player tied
-			else if(x.total == getDealerTotal()){
-				msg.channel.send(x + " and I tied.  No change in chips!");
-			}
-			//Player lost
-			else if(x.total < getDealerTotal()){
-				x.chips -= x.bet;
-				msg.channel.send(x + " lost!  New chips amount: " + x.chips);
-			}
-			//ERROR
-			else {
-				msg.channel.send("Tyler, there\'s a mistake determining who won.");
-			}
+			players[x].total = 0;
 		}
 	}
+	currentTurn = 0;
+	msg.channel.send("Okay everyone, when you want to play again, type !Ready");
 }
 
 //If a card is a face card, turn it into a 10.  Ace, turn into either  1 or 11.
 function addTotal(player, card){
-	if(card.indexOf(CARDS) > 9){
+	if(CARDS.indexOf(card) > 9){
 		//Ace
-		if(card.indexOf(CARDS) == 13){
+		if(CARDS.indexOf(card) == 13){
 			//Ace should be a 1
 			if(player.total >= 11)
 				player.total++;
 			//Ace should be an 11
 			else player.total += 11;
 		}
+		//Face card
 		else player.total += 10;
 	}
-	else player.total += card.indexOf(CARDS) + 1;
+	else player.total += CARDS.indexOf(card) + 1;
 }
 
 function getDealerTotal(){
@@ -311,12 +394,31 @@ function getChips() {
 	return this.startingChips;
 }
 
+function nextTurn(msg) {
+	currentTurn++;
+	for(var x in players){
+		if(players[x].turn == currentTurn)
+			msg.channel.send(players[x].name + " it\'s your turn!");
+		if(players[x].turn == currentTurn + 1){
+			msg.channel.send(playerTurns[x] + ", you\'re on deck!");
+			return false;
+		}
+	}
+}
+
+function drawCards(msg, cardVals){
+	var reps = cardVals.length;
+	for(var i = 0; i < reps; i++){
+		msg.channel.send("-------------");
+		msg.channel.send("|\t \t \t\t|");
+		msg.channel.send("|  \t  " + cardVals[i] +"  \t  |");
+		msg.channel.send("|\t \t \t\t|");
+		msg.channel.send("-------------");
+	}
+}
+
 function getTurn() {
 	return this.currentTurn;
 }
 
-function setTurn(turn) {
-	this.currentTurn++;
-}
-import { key } from "./config.js";
-client.login(key);
+client.login(config.key);
