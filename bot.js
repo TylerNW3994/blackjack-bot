@@ -128,15 +128,13 @@ client.on('message', msg => {
 		msg.channel.send(newPlayer.name + " has joined the Blackjack game!  Turn order: "  + newPlayer.turn);
 		
 	}
-	if(players[author]){
+	if(players[author] && !gameOn){
 		if(command == "Scores" || command == "scores" || command == "score" || command == "SCORE"){
-			if(gameOn){
-				var playerScores = "";
-				for(var x in players){
-					playerScores += players[x].name + " has " + players[x].chips + " chips. \n";
-				}
-				msg.channel.send(playerScores);
+			var playerScores = "";
+			for(var x in players){
+				playerScores += players[x].name + " has " + players[x].chips + " chips. \n";
 			}
+			msg.channel.send(playerScores);
 		}
 		
 		if(command == "myscore" || command == "MyScore" || command == "!myscore" ){
@@ -379,6 +377,7 @@ function endRound(players, msg){
 			players[x].total = 0;
 		}
 	}
+	dealer.total = 0;
 	currentTurn = 0;
 	msg.channel.send("Okay everyone, when you want to play again, type !Ready");
 }
