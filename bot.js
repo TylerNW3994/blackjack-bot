@@ -379,6 +379,7 @@ function endRound(players, msg){
 			players[x].total = 0;
 		}
 	}
+	dealer.total = 0;
 	currentTurn = 0;
 	msg.channel.send("Okay everyone, when you want to play again, type !Ready");
 }
